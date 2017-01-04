@@ -25,14 +25,13 @@ export GC_KEY_PATH=/path/to/gcloud/key.json
 ## Usage
 
 ```
-node parser.js
+npm run start -- [course]
 ```
 
-or 
-
+Ex., for Japanese:
 ```
-npm start
-````
+npm run start -- jp
+```
 
 ## Notes
 
