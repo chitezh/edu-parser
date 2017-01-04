@@ -179,7 +179,7 @@ const writeToCSV = (data, collection) => {
 const processVocab = (db, llBucket) => {
   console.info('Processing vocab collection...\n');
   
-  const checkGCloudThrottled = _.rateLimit(checkGCloud, 500);
+  const checkGCloudThrottled = _.rateLimit(checkGCloud, 1000/RATE_LIMIT+5);
 
   return new Promise((res, rej) => {
     db.vocab.find({ word: { $ne: null }, course: course }, { word: 1, _id: 0 })
