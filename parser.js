@@ -82,7 +82,8 @@ const checkGCloud = (llBucket, word) => {
       } else return { word, found: true };
     })
     .catch(err => {
-      console.warn(`An error occurred while checking file existence: ${err}`);
+      // @Todo: Handle Gcloud connection errors
+      // console.warn(`An error occurred while checking file existence: ${err}`);
     })
 }
 
@@ -165,10 +166,10 @@ const processVocab = (db, llBucket) => {
  * @returns {Object} Returns a Promise
  */
 const processActivities = (db, llBucket) => {
-  console.info('Processing activities collection...\n');
-
-  const limit = 200; // limit number of files due to slow local environment
+  const limit = 1000; // limit number of files due to slow local environment
   return new Promise((res, rej) => {
+    console.info('Processing activities collection...\n');
+
     db.activities.aggregate([{
       $match: {
         'content.type': 'example-sentence'
