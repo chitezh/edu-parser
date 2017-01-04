@@ -6,8 +6,9 @@ const mongojs = require('mongojs'),
   json2csv = require('json2csv'),
   fs = require('fs');
 
-const collections = ['vocab', 'activities'],
-      course = process.argv.slice(2)[0];
+const collections = ['activities'],
+      course = process.argv.slice(2)[0],
+      RATE_LIMIT = 20; //max requests per second
 
 /* Extend the Underscore object with the following methods */
 
@@ -124,7 +125,7 @@ const checkGCloud = (llBucket, word) => {
     })
     .catch(err => {
       // @Todo: Handle Gcloud connection errors
-      console.warn(`An error occurred while checking file existence: ${err}`);
+      console.warn(`An error occurred while checking existence of ${fileName}: ${err}`);
     })
 }
 
@@ -178,7 +179,7 @@ const writeToCSV = (data, collection) => {
 const processVocab = (db, llBucket) => {
   console.info('Processing vocab collection...\n');
   
-  const checkGCloudThrottled = _.rateLimit(checkGCloud, 1000);
+  const checkGCloudThrottled = _.rateLimit(checkGCloud, 1000/RATE_LIMIT+5);
 
   return new Promise((res, rej) => {
     db.vocab.find({ word: { $ne: null }, course: course }, { word: 1, _id: 0 })
@@ -190,7 +191,7 @@ const processVocab = (db, llBucket) => {
       }, (err, result) => {
         if (err) {
           rej(err);
-        } else {
+        } else {          
           filterAndWrite(result, 'vocab');
           res('writing vocab to file...')
         }
@@ -208,6 +209,8 @@ const processVocab = (db, llBucket) => {
 const processActivities = (db, llBucket) => {
   return new Promise((res, rej) => {
     console.info('Processing activities collection...\n');
+
+    const checkGCloudThrottled = _.rateLimit(checkGCloud, 1000/RATE_LIMIT+5);
 
     db.activities.aggregate([{
       $match: {
@@ -232,7 +235,7 @@ const processActivities = (db, llBucket) => {
         const promises = _.map(result.content, content => {
           if (content && content.content && content.content.audio) {
             const audio = content.content.audio;
-            return checkGCloud(llBucket, audio)
+            return checkGCloudThrottled(llBucket, audio);
           }
         });
         return Promise.all(promises);
@@ -268,12 +271,12 @@ const parser = (ctx, cb) => {
   connectToDb(MONGO_URL)
     .then(db => {
       mongodb = db
-      return processVocab(db, llBucket);
+      return processActivities(db, llBucket);
     })
-    .then(resp => {
+    /*.then(resp => {
       console.info(`${resp}\n`);
-      return processActivities(mongodb, llBucket);
-    })
+      return processVocab(mongodb, llBucket);
+    })*/
     .then(resp => {
       console.info(`${resp}\n`);
       mongodb.close();
