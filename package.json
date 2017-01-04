@@ -1,0 +1,17 @@
+{
+  "name": "edu-parser",
+  "version": "1.0.0",
+  "description": "",
+  "main": "parser.js",
+  "scripts": {
+    "start": "node parser.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "google-cloud": "^0.45.1",
+    "json2csv": "^3.7.3",
+    "mongojs": "^2.4.0",
+    "underscore": "^1.8.3"
+  }
+}
