@@ -7,7 +7,6 @@ const mongojs = require('mongojs'),
   fs = require('fs');
 
 const collections = ['vocab', 'activities'];
-const limit = 200; // limit number of files due to slow local environment
 
 /**
  * Connects to MongoDb
@@ -137,7 +136,9 @@ const writeToCSV = (data, collection) => {
 const processVocab = (db, llBucket) => {
   console.info('Processing vocab collection...\n');
 
+  const limit = 2000; // limit number of files due to slow local environment
   return new Promise((res, rej) => {
+
     db.vocab.find({ word: { $ne: null } }, { word: 1, _id: 0 })
       .limit(limit)
       .map(vocabRecord => {
@@ -166,6 +167,7 @@ const processVocab = (db, llBucket) => {
 const processActivities = (db, llBucket) => {
   console.info('Processing activities collection...\n');
 
+  const limit = 200; // limit number of files due to slow local environment
   return new Promise((res, rej) => {
     db.activities.aggregate([{
       $match: {
@@ -216,7 +218,7 @@ const processActivities = (db, llBucket) => {
  */
 const parser = (ctx, cb) => {
   const MONGO_URL = ctx && ctx.data ? ctx.data.MONGO_URL : undefined || process.env.MONGO_URL || 'mongodb://meteor:PASSWORD@aws-us-east-1-portal.14.dblayer.com:10166/ll-app';
-  const GC_PROJECT_ID = ctx && ctx.data ? ctx.data.GC_PROJECT_ID : undefined || process.env.GC_PROJECT_ID || 'sincere-hybrid-608';
+  const GC_PROJECT_ID = ctx && ctx.data ? ctx.data.GC_PROJECT_ID : undefined || process.env.GC_PROJECT_ID || 'project_id';
   const GC_KEY_PATH = ctx && ctx.data ? ctx.data.GC_KEY_PATH : undefined || process.env.GC_KEY_PATH || 'LinguaLift-14b1255b3d5d.json';
 
   // if (!MONGO_URL) return cb(new Error('MONGO_URL secret is missing'));

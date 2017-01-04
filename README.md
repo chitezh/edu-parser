@@ -20,13 +20,12 @@ export GC_PROJECT_ID=gcloud-project-id
 export GC_KEY_PATH=/path/to/gcloud/key.json
 ```
 
-* Ensure you have the gcloud key file *
+* Ensure you have the gcloud key file
 
 ## Usage
 
 ```
 node parser.js
-
 ```
 
 or 
