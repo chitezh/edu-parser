@@ -171,7 +171,7 @@ const writeToCSV = (data, collection) => {
     const csv = json2csv({ data, fields });
     fs.writeFile(`${collection}-${course}.csv`, csv, function(err) {
       if (err) throw err;
-      console.log(`words not found in ${collection} collection saved \n ------- \n`);
+      console.log(`words not found in ${collection} collection saved -  - ${new Date().toISOString()} \n ------- \n`);
     });
   } catch (err) {
     console.error(err);
@@ -186,7 +186,7 @@ const writeToCSV = (data, collection) => {
  * @returns {Object} Returns a Promise
  */
 const processVocab = (db, llBucket) => {
-  console.info('Processing vocab collection...\n');
+  console.info(`Processing vocab collection - ${new Date().toISOString()}...\n`);
 
   return new Promise((res, rej) => {
     let i = 0;
@@ -218,7 +218,7 @@ const processVocab = (db, llBucket) => {
  * @returns {Object} Returns a Promise
  */
 const processActivities = (db, llBucket) => {
-  console.info('Processing activities collection...\n');
+  console.info(`Processing activities collection - ${new Date().toISOString()}...\n`);
 
   return new Promise((res, rej) => {
     let i = 0;
@@ -285,9 +285,9 @@ const parser = (ctx, cb) => {
       mongodb = db
       return processActivities(db, llBucket);
     })
-    // .then(resp => {
-    //   return processVocab(mongodb, llBucket);
-    // })
+    .then(resp => {
+      return processVocab(mongodb, llBucket);
+    })
     .then(resp => {
       mongodb.close();
     })
