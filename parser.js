@@ -7,8 +7,8 @@ const mongojs = require('mongojs'),
   fs = require('fs');
 
 const collections = ['activities'],
-      course = process.argv.slice(2)[0],
-      RATE_LIMIT = 20; //max requests per second
+  course = process.argv.slice(2)[0],
+  RATE_LIMIT = 20; //max requests per second
 
 /* Extend the Underscore object with the following methods */
 
@@ -35,17 +35,19 @@ const collections = ['activities'],
 // Dependencies
 // * underscore.js
 //
-_.rateLimit = function(func, rate, async) {
+/*_.rateLimit = function(func, rate, async) {
   var queue = [];
   var timeOutRef = false;
   var currentlyEmptyingQueue = false;
-  
+
   var emptyQueue = function() {
     if (queue.length) {
       currentlyEmptyingQueue = true;
       _.delay(function() {
         if (async) {
-          _.defer(function() { queue.shift().call(); });
+          _.defer(function() {
+            (queue.shift() || _.noop).call();
+          });
         } else {
           queue.shift().call();
         }
@@ -55,13 +57,16 @@ _.rateLimit = function(func, rate, async) {
       currentlyEmptyingQueue = false;
     }
   };
-  
+
   return function() {
-    var args = _.map(arguments, function(e) { return e; }); // get arguments into an array
-    queue.push( _.bind.apply(this, [func, this].concat(args)) ); // call apply so that we can pass in arguments as parameters as opposed to an array
+    var args = _.map(arguments, function(e) {
+      return e;
+    }); // get arguments into an array
+    queue.push(_.bind.apply(this, [func, this].concat(args))); // call apply so that we can pass in arguments as parameters as opposed to an array
     if (!currentlyEmptyingQueue) { emptyQueue(); }
   };
 };
+*/
 
 /**
  * Connects to MongoDb
@@ -113,20 +118,23 @@ const initGCloud = (projectId, keyFilename) => {
 const checkGCloud = (llBucket, word) => {
   const fileName = getFileName(word);
   const dir = 'audio/' + course;
-
   const firstDirFile = llBucket.file(`${dir}/${fileName}`);
-
-  return firstDirFile.exists()
-    .then(res => {
-      if (res && res.length > 0 && !res[0]) {
-        // word not found
-        return { word, found: false };
-      } else return { word, found: true };
-    })
-    .catch(err => {
-      // @Todo: Handle Gcloud connection errors
-      console.warn(`An error occurred while checking existence of ${fileName}: ${err}`);
-    })
+  return i => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        firstDirFile.exists((err, res) => {
+          if (err) {
+            console.warn(`An error occurred while checking existence of ${fileName}: ${err}`);
+            reject(err);
+          }
+          if (!res) {
+            // word not found
+            resolve({ word, found: false });
+          } else resolve({ word, found: true });
+        })
+      }, i * 1000 / RATE_LIMIT + 5);
+    });
+  }
 }
 
 /**
@@ -140,7 +148,7 @@ const filterAndWrite = (promise, collection) => {
   Promise.all(promise)
     .then(resp => {
       const newArr = _.flatten(resp);
-      const notFound = _.where(newArr, { found: false });
+      const notFound = _.where(newArr, { found: true });
       writeToCSV(notFound, collection);
     })
     .catch(err => {
@@ -157,6 +165,7 @@ const filterAndWrite = (promise, collection) => {
  */
 const writeToCSV = (data, collection) => {
   const fields = ['word'];
+  console.info(`writing ${collection} to file...\n`);
 
   try {
     const csv = json2csv({ data, fields });
@@ -178,22 +187,24 @@ const writeToCSV = (data, collection) => {
  */
 const processVocab = (db, llBucket) => {
   console.info('Processing vocab collection...\n');
-  
-  const checkGCloudThrottled = _.rateLimit(checkGCloud, 1000/RATE_LIMIT+5);
 
   return new Promise((res, rej) => {
+    let i = 0;
+
     db.vocab.find({ word: { $ne: null }, course: course }, { word: 1, _id: 0 })
       .map(vocabRecord => {
+        i++;
+
         if (vocabRecord && vocabRecord.word) {
           const word = vocabRecord.word;
-          return checkGCloudThrottled(llBucket, word);
+          return checkGCloud(llBucket, word)(i);
         }
       }, (err, result) => {
         if (err) {
           rej(err);
-        } else {          
+        } else {
           filterAndWrite(result, 'vocab');
-          res('writing vocab to file...')
+          res('done');
         }
       })
   })
@@ -207,10 +218,10 @@ const processVocab = (db, llBucket) => {
  * @returns {Object} Returns a Promise
  */
 const processActivities = (db, llBucket) => {
-  return new Promise((res, rej) => {
-    console.info('Processing activities collection...\n');
+  console.info('Processing activities collection...\n');
 
-    const checkGCloudThrottled = _.rateLimit(checkGCloud, 1000/RATE_LIMIT+5);
+  return new Promise((res, rej) => {
+    let i = 0;
 
     db.activities.aggregate([{
       $match: {
@@ -233,9 +244,10 @@ const processActivities = (db, llBucket) => {
     }]).map(result => {
       if (result) {
         const promises = _.map(result.content, content => {
+          i++;
           if (content && content.content && content.content.audio) {
             const audio = content.content.audio;
-            return checkGCloudThrottled(llBucket, audio);
+            return checkGCloud(llBucket, audio)(i);
           }
         });
         return Promise.all(promises);
@@ -245,7 +257,7 @@ const processActivities = (db, llBucket) => {
         rej(err);
       } else {
         filterAndWrite(result, 'activities');
-        res('writing activities to file...');
+        res('done');
       }
     });
   })
@@ -273,12 +285,10 @@ const parser = (ctx, cb) => {
       mongodb = db
       return processActivities(db, llBucket);
     })
-    /*.then(resp => {
-      console.info(`${resp}\n`);
-      return processVocab(mongodb, llBucket);
-    })*/
+    // .then(resp => {
+    //   return processVocab(mongodb, llBucket);
+    // })
     .then(resp => {
-      console.info(`${resp}\n`);
       mongodb.close();
     })
     .catch(err => {
